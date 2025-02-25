@@ -1,8 +1,8 @@
-# Waveform Extractor
+# WavyPy
 
 Extract waveform data from audio files with ease and precision.
 
-Waveform Extractor is a Python tool that processes audio files (e.g., MP3, WAV) and extracts waveform data, saving it as
+WavyPy is a Python tool that processes audio files (e.g., MP3, WAV) and extracts waveform data, saving it as
 a structured JSON file. Whether you're visualizing audio for a web app, analyzing sound patterns, or debugging audio
 processing pipelines, this tool provides a fast, flexible, and reliable solution.
 
@@ -23,7 +23,7 @@ processing pipelines, this tool provides a fast, flexible, and reliable solution
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.11+
 - pip (Python package manager)
 
 ### Install Dependencies
@@ -31,18 +31,10 @@ processing pipelines, this tool provides a fast, flexible, and reliable solution
 Clone the repository and install the required packages:
 
 ```bash
-git clone https://github.com/yourusername/waveform-extractor.git
-cd waveform-extractor
+git clone https://github.com/GabrielJuliao/wavypy.git
+cd wavypy
 pip install -r requirements.txt
 ```
-
-#### `requirements.txt`
-
-```txt
-numpy>=1.21.0
-pydub>=0.25.1
-```
-
 ---
 
 ## Usage
@@ -162,7 +154,7 @@ Please include tests and update documentation as needed.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
