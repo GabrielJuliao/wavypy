@@ -62,7 +62,7 @@ class WaveformBuffer:
         self.data.append((min_value, max_value))
 
     def save_as_json(self, filename: str, bits: BitDepth = BitDepth.SIXTEEN) -> None:
-        """Save waveform data as a JSON file."""
+        """Save waveform data as a formatted JSON file."""
         size = self.get_size()
         divisor = 256 if bits == BitDepth.EIGHT else 1
 
@@ -77,8 +77,8 @@ class WaveformBuffer:
                 "data": [int(v) // divisor for pair in self.data for v in pair],  # Flatten min/max pairs
             }
             with open(filename, "w") as f:
-                json.dump(data, f)
-                f.write("\n")
+                json.dump(data, f, indent=4)  # Pretty-print with 4-space indentation
+                f.write("\n")  # Optional: ensure a trailing newline
             logger.info(f"Waveform data saved to '{filename}'")
         except Exception as e:
             raise IOError(f"Failed to save JSON file: {e}")
