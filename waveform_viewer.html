@@ -30,7 +30,7 @@
             align-items: center;
             flex-wrap: wrap;
         }
-        .controls button {
+        .controls button, .controls select {
             background-color: #4CAF50;
             border: none;
             color: white;
@@ -42,12 +42,15 @@
             border-radius: 4px;
             transition: background-color 0.3s;
         }
-        .controls button:hover {
+        .controls button:hover, .controls select:hover {
             background-color: #45a049;
         }
-        .controls button:disabled {
+        .controls button:disabled, .controls select:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
+        }
+        .style-selector {
+            margin-left: auto;
         }
         .scroll-container {
             width: 100%;
@@ -102,6 +105,15 @@
         <button id="zoom-in">Zoom In</button>
         <button id="zoom-out">Zoom Out</button>
         <span class="zoom-level">Zoom: <span id="zoom-value">1x</span></span>
+
+        <div class="style-selector">
+            <select id="waveform-style">
+                <option value="line">Line Style</option>
+                <option value="solid">Solid Style</option>
+                <option value="bars">Bar Style</option>
+                <option value="points">Point Style</option>
+            </select>
+        </div>
     </div>
 
     <div class="waveform-container">
@@ -130,6 +142,7 @@
                 waveform: '#4CAF50',
                 centerLine: '#cccccc'
             };
+            this.renderStyle = 'line'; // Default render style
 
             this.resizeCanvas();
 
@@ -235,24 +248,37 @@
 
             console.log(`Rendering points from ${visibleStart} to ${visibleEnd}`);
 
-            // Draw waveform
-            this.ctx.beginPath();
+            // Choose the appropriate rendering method based on the style
+            switch (this.renderStyle) {
+                case 'solid':
+                    this.renderSolidStyle(visibleStart, visibleEnd, width, height, centerY);
+                    break;
+                case 'bars':
+                    this.renderBarStyle(visibleStart, visibleEnd, width, height, centerY);
+                    break;
+                case 'points':
+                    this.renderPointStyle(visibleStart, visibleEnd, width, height, centerY);
+                    break;
+                case 'line':
+                default:
+                    this.renderLineStyle(visibleStart, visibleEnd, width, height, centerY);
+                    break;
+            }
+        }
 
-            // Track how many points we actually draw
+        renderLineStyle(visibleStart, visibleEnd, width, height, centerY) {
+            // Draw waveform as connected lines between min/max points
+            this.ctx.beginPath();
             let pointsDrawn = 0;
 
             for (let i = visibleStart; i < visibleEnd; i++) {
-                if (i < 0 || i >= this.waveformData.length) continue;
+                if (i < 0 || i >= this.getFullWidth()) continue;
 
                 const data = this.waveformData.data;
                 const channels = this.waveformData.channels || 1;
 
                 // Calculate the x-coordinate on the canvas
                 const x = (i - this.offset) * this.zoom;
-
-                // For multi-channel files, we'll display the first channel or mix them
-                let minY = 0;
-                let maxY = 0;
 
                 // Direct access to the data - our format is just [min1, max1, min2, max2, ...]
                 const pointIndex = i * 2;  // Each point has min and max
@@ -261,11 +287,11 @@
                     continue; // Skip if data is out of bounds
                 }
 
-                minY = data[pointIndex];      // min value
-                maxY = data[pointIndex + 1];  // max value
+                const minY = data[pointIndex];      // min value
+                const maxY = data[pointIndex + 1];  // max value
 
                 // Normalize values to the canvas height
-                const scaleFactor = height / 2 * 0.8; // 80% of half height for better visibility
+                const scaleFactor = (height / 2) * 0.8; // 80% of half height for better visibility
 
                 // Convert to y-coordinates (invert because canvas y increases downward)
                 const yMin = centerY - (minY / 32768) * scaleFactor;
@@ -278,11 +304,144 @@
                 pointsDrawn++;
             }
 
-            console.log(`Drew ${pointsDrawn} points on canvas`);
-
             this.ctx.strokeStyle = this.colors.waveform;
             this.ctx.lineWidth = 1;
             this.ctx.stroke();
+
+            console.log(`Drew ${pointsDrawn} points on canvas (line style)`);
+        }
+
+        renderSolidStyle(visibleStart, visibleEnd, width, height, centerY) {
+            // Draw waveform as a filled shape
+            this.ctx.beginPath();
+            let pointsDrawn = 0;
+
+            // Start at the center line
+            this.ctx.moveTo((visibleStart - this.offset) * this.zoom, centerY);
+
+            // Draw the top edge (max values)
+            for (let i = visibleStart; i < visibleEnd; i++) {
+                if (i < 0 || i >= this.getFullWidth()) continue;
+
+                const data = this.waveformData.data;
+                const pointIndex = i * 2;
+
+                if (pointIndex + 1 >= data.length) continue;
+
+                const maxY = data[pointIndex + 1];  // max value
+                const x = (i - this.offset) * this.zoom;
+                const scaleFactor = (height / 2) * 0.8;
+                const y = centerY - (maxY / 32768) * scaleFactor;
+
+                this.ctx.lineTo(x, y);
+                pointsDrawn++;
+            }
+
+            // Draw the bottom edge (min values) in reverse
+            for (let i = visibleEnd - 1; i >= visibleStart; i--) {
+                if (i < 0 || i >= this.getFullWidth()) continue;
+
+                const data = this.waveformData.data;
+                const pointIndex = i * 2;
+
+                if (pointIndex >= data.length) continue;
+
+                const minY = data[pointIndex];  // min value
+                const x = (i - this.offset) * this.zoom;
+                const scaleFactor = (height / 2) * 0.8;
+                const y = centerY - (minY / 32768) * scaleFactor;
+
+                this.ctx.lineTo(x, y);
+                pointsDrawn++;
+            }
+
+            // Close the path back to the start
+            this.ctx.closePath();
+
+            // Fill the shape
+            this.ctx.fillStyle = this.colors.waveform;
+            this.ctx.globalAlpha = 0.5;  // Semi-transparent
+            this.ctx.fill();
+            this.ctx.globalAlpha = 1.0;  // Reset alpha
+
+            console.log(`Drew ${pointsDrawn} points on canvas (solid style)`);
+        }
+
+        renderBarStyle(visibleStart, visibleEnd, width, height, centerY) {
+            // Draw waveform as bars
+            let pointsDrawn = 0;
+            const barWidth = Math.max(2, Math.floor(this.zoom - 1));  // Adjust bar width based on zoom
+
+            this.ctx.fillStyle = this.colors.waveform;
+
+            for (let i = visibleStart; i < visibleEnd; i++) {
+                if (i < 0 || i >= this.getFullWidth()) continue;
+
+                const data = this.waveformData.data;
+                const pointIndex = i * 2;
+
+                if (pointIndex + 1 >= data.length) continue;
+
+                const minY = data[pointIndex];      // min value
+                const maxY = data[pointIndex + 1];  // max value
+
+                const x = (i - this.offset) * this.zoom;
+                const scaleFactor = (height / 2) * 0.8;
+
+                const yMin = centerY - (minY / 32768) * scaleFactor;
+                const yMax = centerY - (maxY / 32768) * scaleFactor;
+
+                // Draw a rectangle for this bar
+                this.ctx.fillRect(
+                    x - barWidth/2,  // center the bar on the x-coordinate
+                    yMax,           // top of the bar (max value)
+                    barWidth,       // width of the bar
+                    yMin - yMax     // height of the bar
+                );
+
+                pointsDrawn++;
+            }
+
+            console.log(`Drew ${pointsDrawn} points on canvas (bar style)`);
+        }
+
+        renderPointStyle(visibleStart, visibleEnd, width, height, centerY) {
+            // Draw waveform as points
+            let pointsDrawn = 0;
+            const pointRadius = Math.max(2, Math.floor(this.zoom / 2));  // Adjust point size based on zoom
+
+            this.ctx.fillStyle = this.colors.waveform;
+
+            for (let i = visibleStart; i < visibleEnd; i++) {
+                if (i < 0 || i >= this.getFullWidth()) continue;
+
+                const data = this.waveformData.data;
+                const pointIndex = i * 2;
+
+                if (pointIndex + 1 >= data.length) continue;
+
+                const minY = data[pointIndex];      // min value
+                const maxY = data[pointIndex + 1];  // max value
+
+                const x = (i - this.offset) * this.zoom;
+                const scaleFactor = (height / 2) * 0.8;
+
+                const yMin = centerY - (minY / 32768) * scaleFactor;
+                const yMax = centerY - (maxY / 32768) * scaleFactor;
+
+                // Draw points at min and max
+                this.ctx.beginPath();
+                this.ctx.arc(x, yMin, pointRadius, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                this.ctx.beginPath();
+                this.ctx.arc(x, yMax, pointRadius, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                pointsDrawn += 2;  // Count both min and max points
+            }
+
+            console.log(`Drew ${pointsDrawn} points on canvas (point style)`);
         }
 
         renderEmptyState() {
@@ -322,6 +481,7 @@
             document.getElementById('zoom-in').disabled = false;
             document.getElementById('zoom-out').disabled = false;
             document.getElementById('scroll-bar').disabled = false;
+            document.getElementById('waveform-style').disabled = false;
         }
 
         updateScrollBar() {
@@ -347,6 +507,7 @@
         document.getElementById('zoom-in').disabled = true;
         document.getElementById('zoom-out').disabled = true;
         document.getElementById('scroll-bar').disabled = true;
+        document.getElementById('waveform-style').disabled = true;
 
         // Attach event listeners
         document.getElementById('zoom-in').addEventListener('click', () => renderer.zoomIn());
@@ -355,6 +516,11 @@
             renderer.offset = parseFloat(e.target.value);
             renderer.render();
             renderer.updateTimeInfo();
+        });
+
+        document.getElementById('waveform-style').addEventListener('change', (e) => {
+            renderer.renderStyle = e.target.value;
+            renderer.render();
         });
 
         document.getElementById('file-input').addEventListener('change', function(e) {
