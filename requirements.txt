@@ -1,2 +1,4 @@
-numpy
-pydub
+numpy~=2.2.3
+pydub~=0.25.1
+scipy~=1.15.2
+wavio~=0.0.9
