@@ -589,10 +589,10 @@ def get_band_preset(preset_name: str) -> List[FrequencyBand]:
             "ultra:highpass:10000:24"
         ],
         "club": [
-            "low:lowpass:110:12",
-            "low_mid:highpass:150:12,lowpass:160:12",
-            "mid:highpass:180:12,lowpass:800:6",
-            "high:highpass:2500:6,lowpass:3000:6",
+            "low:lowpass:120:12",
+            "low_mid:highpass:120:12,lowpass:250:12",
+            "mid:highpass:250:12,lowpass:1200:12",
+            "high:highpass:1200:12,lowpass:3000:6",
         ]
     }
 
