@@ -170,6 +170,8 @@
                 <option value="points">Point Style</option>
             </select>
         </div>
+
+        <button id="club-preset" style="margin-left: 10px; background-color: #0055e2;">Club Style</button>
     </div>
 
     <div class="waveform-container">
@@ -196,8 +198,8 @@
             this.selectedBands = new Set();
             this.displayMode = 'stacked'; // 'stacked' or 'overlay'
 
-            // Color palette for different bands
-            this.bandColors = [
+            // Color palette for different bands (default fallback)
+            this.defaultColors = [
                 '#4CAF50', // Green
                 '#2196F3', // Blue
                 '#F44336', // Red
@@ -212,8 +214,19 @@
                 '#CDDC39'  // Lime
             ];
 
+            // Specific color scheme for Rekordbox-style visualization
+            this.colorScheme = {
+                'low': '#0055e2',     // Blue
+                'low_mid': '#aa6d28', // Gold
+                'mid': '#f2aa3c',     // Orange
+                'high': '#ffffff',    // White
+                'ultra': '#ffffff'    // White (same as high)
+            };
+
+            this.bandColors = {}; // Will be populated with actual colors when data is loaded
+
             this.colors = {
-                background: '#f9f9f9',
+                background: '#000000',
                 waveform: '#4CAF50',
                 centerLine: '#cccccc'
             };
@@ -240,6 +253,9 @@
             // Initialize selected bands - select all by default
             this.selectedBands = new Set(data.bands || ['fullrange']);
 
+            // Set up color mapping for bands
+            this.setupBandColors();
+
             // Create band checkboxes
             this.createBandCheckboxes();
 
@@ -253,14 +269,47 @@
             this.updateScrollBar();
         }
 
+        setupBandColors() {
+            // Reset band colors
+            this.bandColors = {};
+
+            if (!this.waveformData) return;
+
+            // First check if the data includes a color scheme
+            if (this.waveformData.freq && Array.isArray(this.waveformData.freq)) {
+                console.log("Using color scheme from file");
+                this.waveformData.freq.forEach(item => {
+                    if (item.name && item.color && item.color.hex) {
+                        this.bandColors[item.name] = item.color.hex;
+                    }
+                });
+            }
+
+            // For any bands without specified colors, use the predefined scheme if applicable
+            // or fall back to default colors
+            if (this.waveformData.bands) {
+                this.waveformData.bands.forEach((band, index) => {
+                    if (!this.bandColors[band]) {
+                        if (this.colorScheme[band]) {
+                            this.bandColors[band] = this.colorScheme[band];
+                        } else {
+                            this.bandColors[band] = this.defaultColors[index % this.defaultColors.length];
+                        }
+                    }
+                });
+            }
+
+            console.log("Band colors set up:", this.bandColors);
+        }
+
         createBandCheckboxes() {
             const container = document.getElementById('band-checkboxes');
             container.innerHTML = ''; // Clear existing checkboxes
 
             if (!this.waveformData || !this.waveformData.bands) return;
 
-            this.waveformData.bands.forEach((band, index) => {
-                const color = this.bandColors[index % this.bandColors.length];
+            this.waveformData.bands.forEach(band => {
+                const color = this.bandColors[band] || '#4CAF50';
 
                 const checkbox = document.createElement('label');
                 checkbox.className = 'band-checkbox';
@@ -408,7 +457,7 @@
                 this.ctx.stroke();
 
                 // Get the band color
-                const bandColor = this.bandColors[index % this.bandColors.length];
+                const bandColor = this.bandColors[band] || this.defaultColors[index % this.defaultColors.length];
 
                 // Calculate visible range
                 const visibleStart = Math.floor(this.offset);
@@ -454,7 +503,7 @@
 
             // Draw each band
             selectedBands.forEach((band, index) => {
-                const bandColor = this.bandColors[index % this.bandColors.length];
+                const bandColor = this.bandColors[band] || this.defaultColors[index % this.defaultColors.length];
 
                 // Render the waveform for this band
                 this.renderBandWaveform(
@@ -776,6 +825,21 @@
 
         document.getElementById('display-mode').addEventListener('change', (e) => {
             renderer.setDisplayMode(e.target.value);
+        });
+
+        // Add "Club Style" quick preset button
+        document.getElementById('club-preset').addEventListener('click', () => {
+            if (renderer.waveformData) {
+                // Set to overlay mode for Rekordbox style
+                document.getElementById('display-mode').value = 'overlay';
+                renderer.setDisplayMode('overlay');
+
+                // Set bar style for waveform
+                document.getElementById('waveform-style').value = 'bars';
+                renderer.renderStyle = 'bars';
+
+                renderer.render();
+            }
         });
 
         document.getElementById('file-input').addEventListener('change', function(e) {

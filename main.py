@@ -345,6 +345,23 @@ class WaveformGenerator:
         trimmed = input_buffer[:num_points * self.samples_per_pixel]
         reshaped = trimmed.reshape(num_points, self.samples_per_pixel, self.channels)
 
+        # Apply band-specific normalization to compensate for filter effects
+        # These are approximate scaling factors based on typical filter responses
+        normalization_factor = 1.0
+        if band_name == "low":
+            normalization_factor = 1.3  # Boost low frequencies
+        elif band_name == "low_mid":
+            normalization_factor = 1.6  # Significant boost for narrow band
+        elif band_name == "mid":
+            normalization_factor = 1.2  # Moderate boost
+        elif band_name == "high":
+            normalization_factor = 1.5  # Boost to compensate for narrow band
+        elif band_name == "ultra":
+            normalization_factor = 2.0  # Significant boost for very high frequencies
+
+        # Apply normalization
+        reshaped = reshaped * normalization_factor
+
         if self.output_channels == 1:
             # Mix channels into mono
             mixed = reshaped.mean(axis=2, dtype=np.int32)  # Avoid overflow
@@ -544,7 +561,7 @@ def parse_arguments() -> argparse.Namespace:
 
     # Add predefined band presets
     parser.add_argument(
-        "--band-preset", choices=["standard", "detailed"],
+        "--band-preset", choices=["standard", "detailed", "club"],
         help="Use a predefined frequency band preset"
     )
 
@@ -570,6 +587,12 @@ def get_band_preset(preset_name: str) -> List[FrequencyBand]:
             "highmid:bandpass:2000-4000:24",
             "high:bandpass:4000-10000:24",
             "ultra:highpass:10000:24"
+        ],
+        "club": [
+            "low:lowpass:110:12",
+            "low_mid:highpass:150:12,lowpass:160:12",
+            "mid:highpass:180:12,lowpass:800:6",
+            "high:highpass:2500:6,lowpass:3000:6",
         ]
     }
 
