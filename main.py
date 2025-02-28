@@ -349,15 +349,15 @@ class WaveformGenerator:
         # These are approximate scaling factors based on typical filter responses
         normalization_factor = 1.0
         if band_name == "low":
-            normalization_factor = 1.3  # Boost low frequencies
+            normalization_factor = 1.5  # Boost low frequencies
         elif band_name == "low_mid":
-            normalization_factor = 1.6  # Significant boost for narrow band
+            normalization_factor = 1.0  # Significant boost for narrow band
         elif band_name == "mid":
-            normalization_factor = 1.2  # Moderate boost
+            normalization_factor = 1.0  # Moderate boost
         elif band_name == "high":
-            normalization_factor = 1.5  # Boost to compensate for narrow band
+            normalization_factor = 1.0  # Boost to compensate for narrow band
         elif band_name == "ultra":
-            normalization_factor = 2.0  # Significant boost for very high frequencies
+            normalization_factor = 1.0  # Significant boost for very high frequencies
 
         # Apply normalization
         reshaped = reshaped * normalization_factor
@@ -591,7 +591,7 @@ def get_band_preset(preset_name: str) -> List[FrequencyBand]:
         "club": [
             "low:lowpass:120:12",
             "low_mid:highpass:120:12,lowpass:250:12",
-            "mid:highpass:250:12,lowpass:1200:12",
+            "mid:highpass:120:12,lowpass:1200:12",
             "high:highpass:1200:12,lowpass:3000:6",
         ]
     }
