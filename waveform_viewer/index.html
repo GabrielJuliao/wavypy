@@ -10,6 +10,64 @@
     <link rel="stylesheet" type="text/css" href="styles.css" />
   </head>
   <body>
+    <div class="container">
+      <h1>Waveform Viewer</h1>
+
+      <div class="file-input">
+        <label for="file-input">Upload JSON waveform data: </label>
+        <input type="file" id="file-input" accept=".json" />
+        <span id="loading">Loading...</span>
+      </div>
+
+      <div class="info-panel" id="file-info">
+        Upload a waveform JSON file to see information.
+      </div>
+
+      <div class="band-display-mode">
+        <label for="display-mode">Display Mode: </label>
+        <select id="display-mode">
+          <option value="stacked">Stacked (Each band separately)</option>
+          <option value="overlay">Overlay (All bands together)</option>
+        </select>
+      </div>
+
+      <div class="band-checkboxes" id="band-checkboxes">
+        <!-- Band checkboxes will be inserted here dynamically -->
+      </div>
+
+      <div class="controls">
+        <button id="zoom-in">Zoom In</button>
+        <button id="zoom-out">Zoom Out</button>
+        <span class="zoom-level">Zoom: <span id="zoom-value">1x</span></span>
+
+        <div class="style-selector">
+          <select id="waveform-style">
+            <option value="line">Line Style</option>
+            <option value="solid">Solid Style</option>
+            <option value="bars">Bar Style</option>
+            <option value="points">Point Style</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="waveform-container">
+        <canvas id="waveform"></canvas>
+      </div>
+
+      <div id="time-info">Duration: 0.00 seconds | View: 0.00s - 0.00s</div>
+
+      <div class="scroll-container">
+        <input
+          type="range"
+          id="scroll-bar"
+          class="scroll-bar"
+          min="0"
+          max="100"
+          value="0"
+          disabled
+        />
+      </div>
+    </div>
     <script src="renderer.js"></script>
   </body>
 </html>
