@@ -17,6 +17,29 @@ from scipy.signal import butter, sosfilt, sosfilt_zi
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+band_presets = {
+    "standard": [
+        "low:lowpass:250:12",
+        "mid:bandpass:250-4000:12",
+        "high:highpass:4000:12"
+    ],
+    "detailed": [
+        "sub:lowpass:60:24",
+        "low:bandpass:60-250:24",
+        "lowmid:bandpass:250-500:24",
+        "mid:bandpass:500-2000:24",
+        "highmid:bandpass:2000-4000:24",
+        "high:bandpass:4000-10000:24",
+        "ultra:highpass:10000:24"
+    ],
+    "club": [
+        "low:lowpass:250:12",
+        "low_mid:highpass:250:12,lowpass:500:12",
+        "mid:highpass:250:12,lowpass:1200:12",
+        "high:highpass:2000:12,lowpass:3000:12",
+    ]
+}
+
 
 class BitDepth(IntEnum):
     """Supported bit depths for waveform output."""
@@ -346,18 +369,7 @@ class WaveformGenerator:
         reshaped = trimmed.reshape(num_points, self.samples_per_pixel, self.channels)
 
         # Apply band-specific normalization to compensate for filter effects
-        # These are approximate scaling factors based on typical filter responses
         normalization_factor = 1.0
-        # if band_name == "low":
-        #     normalization_factor = 1.0  # Boost low frequencies
-        # elif band_name == "low_mid":
-        #     normalization_factor = 1.0  # Significant boost for narrow band
-        # elif band_name == "mid":
-        #     normalization_factor = 1.0  # Moderate boost
-        # elif band_name == "high":
-        #     normalization_factor = 1.0  # Boost to compensate for narrow band
-        # elif band_name == "ultra":
-        #     normalization_factor = 1.0  # Significant boost for very high frequencies
 
         # Apply normalization
         reshaped = reshaped * normalization_factor
@@ -561,7 +573,7 @@ def parse_arguments() -> argparse.Namespace:
 
     # Add predefined band presets
     parser.add_argument(
-        "--band-preset", choices=["standard", "detailed", "club"],
+        "--band-preset", choices=band_presets,
         help="Use a predefined frequency band preset"
     )
 
@@ -573,33 +585,11 @@ def parse_arguments() -> argparse.Namespace:
 
 def get_band_preset(preset_name: str) -> List[FrequencyBand]:
     """Get a predefined frequency band preset."""
-    presets = {
-        "standard": [
-            "low:lowpass:250:12",
-            "mid:bandpass:250-4000:12",
-            "high:highpass:4000:12"
-        ],
-        "detailed": [
-            "sub:lowpass:60:24",
-            "low:bandpass:60-250:24",
-            "lowmid:bandpass:250-500:24",
-            "mid:bandpass:500-2000:24",
-            "highmid:bandpass:2000-4000:24",
-            "high:bandpass:4000-10000:24",
-            "ultra:highpass:10000:24"
-        ],
-        "club": [
-            "low:lowpass:250:12",
-            "low_mid:highpass:250:12,lowpass:500:12",
-            "mid:highpass:250:12,lowpass:1200:12",
-            "high:highpass:2000:12,lowpass:3000:12",
-        ]
-    }
 
-    if preset_name not in presets:
+    if preset_name not in band_presets:
         raise ValueError(f"Unknown band preset: {preset_name}")
 
-    return parse_frequency_bands(presets[preset_name])
+    return parse_frequency_bands(band_presets[preset_name])
 
 
 def main() -> int:
