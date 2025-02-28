@@ -348,16 +348,16 @@ class WaveformGenerator:
         # Apply band-specific normalization to compensate for filter effects
         # These are approximate scaling factors based on typical filter responses
         normalization_factor = 1.0
-        if band_name == "low":
-            normalization_factor = 1.5  # Boost low frequencies
-        elif band_name == "low_mid":
-            normalization_factor = 1.0  # Significant boost for narrow band
-        elif band_name == "mid":
-            normalization_factor = 1.0  # Moderate boost
-        elif band_name == "high":
-            normalization_factor = 1.0  # Boost to compensate for narrow band
-        elif band_name == "ultra":
-            normalization_factor = 1.0  # Significant boost for very high frequencies
+        # if band_name == "low":
+        #     normalization_factor = 1.0  # Boost low frequencies
+        # elif band_name == "low_mid":
+        #     normalization_factor = 1.0  # Significant boost for narrow band
+        # elif band_name == "mid":
+        #     normalization_factor = 1.0  # Moderate boost
+        # elif band_name == "high":
+        #     normalization_factor = 1.0  # Boost to compensate for narrow band
+        # elif band_name == "ultra":
+        #     normalization_factor = 1.0  # Significant boost for very high frequencies
 
         # Apply normalization
         reshaped = reshaped * normalization_factor
