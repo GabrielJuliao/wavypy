@@ -1,0 +1,15 @@
+{
+  "name": "waveform_viewer",
+  "version": "1.0.0",
+  "description": "Waveform visualizer",
+  "license": "ISC",
+  "author": "Gabriel Juliao",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "electron": "^34.3.0"
+  }
+}
