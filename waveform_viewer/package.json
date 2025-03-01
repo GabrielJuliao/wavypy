@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "electron": "^34.3.0"
+  },
+  "dependencies": {
+    "pako": "^2.1.0"
   }
 }
