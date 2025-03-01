@@ -104,11 +104,12 @@ class WaveformRenderer {
 
     // Handle compression
     if (compression === "gzip") {
-      const compressedBytes = new Uint8Array(
-        [...binaryString].map((ch) => ch.charCodeAt(0))
+      const compressedBytes = [...binaryString].map((ch) => ch.charCodeAt(0));
+      const decompressed = await window.electronAPI.decompress(
+        compressedBytes,
+        compression
       );
-      const decompressed = await window.electronAPI.decompress(compressedBytes, compression);
-      byteArray = decompressed;
+      byteArray = new Uint8Array(decompressed); // Convert plain array to Uint8Array
     } else {
       byteArray = new Uint8Array(
         [...binaryString].map((ch) => ch.charCodeAt(0))
@@ -127,9 +128,9 @@ class WaveformRenderer {
 
       for (let i = 0; i < sampleCount; i++) {
         if (bits === 8) {
-          samplesArray[i] = dataView.getInt8(i) * 256; // Scale to 16-bit range
+          samplesArray[i] = dataView.getInt8(i) * 256;
         } else {
-          samplesArray[i] = dataView.getInt16(i * 2, true); // Little-endian
+          samplesArray[i] = dataView.getInt16(i * 2, true);
         }
       }
       return Array.from(samplesArray);
