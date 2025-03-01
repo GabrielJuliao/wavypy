@@ -1,0 +1,43 @@
+# Metadata versioning for future compatibility
+version: "1.0.0"
+
+# Number of audio channels (e.g., 1 for mono, 2 for stereo)
+channels: 1
+
+# Samples per second (e.g., 44100 Hz)
+sample_rate: 44100
+
+# Bit depth per sample (e.g., 8, 16, 24, 32)
+bits_per_sample: 16
+
+# Duration in seconds
+duration: 0.0
+
+# For visualization, samples per rendered pixel (optional)
+samples_per_pixel: 256
+
+# "fullrange" or "multiband" to define waveform type
+type: "fullrange"
+
+data:
+  # Structured data field, varies by type
+  fullrange:
+    # If type is "fullrange"
+    compression: "none"  # "none", "gzip", "zlib", etc.
+    sample_format: "base64_json"  # "base64_json", "base64_binary"
+    samples: ""  # String: JSON array or base64-encoded binary
+
+  multiband:
+    # If type is "multiband"
+    bands:
+      - name: "low"  # Descriptive name for the band
+        frequency_range: [ 20, 200 ]  # [min_freq, max_freq] in Hz
+        compression: "gzip"  # "none", "gzip", etc.
+        sample_format: "base64_binary"  # "base64_json", "base64_binary"
+        samples: ""  # String: base64-encoded JSON array or base64-encoded binary
+
+# Optional extensible metadata
+metadata:
+  compression: "none"  # Global compression hint
+  source: "raw"  # e.g., "raw", "file", "stream"
+  tags: { }  # Custom key-value pairs
