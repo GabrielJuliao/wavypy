@@ -377,6 +377,16 @@ class WaveformRenderer {
           color
         );
         break;
+      case "club": // New "club" style
+        this.renderClubStyle(
+          samples,
+          visibleStart,
+          visibleEnd,
+          bandHeight,
+          centerY,
+          color
+        );
+        break;
       case "line":
       default:
         this.renderLineStyle(
@@ -416,6 +426,49 @@ class WaveformRenderer {
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 1;
     this.ctx.stroke();
+  }
+
+  renderClubStyle(samples, visibleStart, visibleEnd, height, centerY, color) {
+    const ctx = this.ctx;
+    const scaleFactor = (height / 2) * 0.8;
+
+    // Use raw samples directly (no uniform scaling or smoothing)
+    // Draw upper waveform (no smoothing, raw data)
+    ctx.beginPath();
+    ctx.moveTo((visibleStart - this.offset) * this.zoom, centerY);
+
+    // Plot upper peaks with linear interpolation using raw data
+    for (let i = visibleStart; i < visibleEnd; i++) {
+      const x = (i - this.offset) * this.zoom;
+      const maxY = samples[i * 2 + 1]; // Raw upper peak
+      const yMax = centerY - (maxY / 32768) * scaleFactor; // Adjust for your bit depth (e.g., 16-bit ±32768)
+      ctx.lineTo(x, yMax);
+    }
+
+    // Finish upper edge with the last point
+    const lastX = (visibleEnd - 1 - this.offset) * this.zoom;
+    const lastMaxY = samples[(visibleEnd - 1) * 2 + 1]; // Raw last upper peak
+    ctx.lineTo(lastX, centerY);
+
+    // Draw lower waveform (no smoothing, raw data) in reverse
+    for (let i = visibleEnd - 1; i >= visibleStart; i--) {
+      const x = (i - this.offset) * this.zoom;
+      const minY = samples[i * 2]; // Raw lower peak
+      const yMin = centerY - (minY / 32768) * scaleFactor; // Adjust for your bit depth
+      ctx.lineTo(x, yMin);
+    }
+
+    // Close the path to fill the shape
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Optional: Add a subtle outline for definition (Rekordbox-like)
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.8;
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
   }
 
   renderSolidStyle(samples, visibleStart, visibleEnd, height, centerY, color) {
