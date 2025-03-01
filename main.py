@@ -195,7 +195,7 @@ class Waveform:
         self.version = "1.0.0"
         self.sample_rate = 0
         self.samples_per_pixel = 0
-        self.bits = BitDepth.SIXTEEN
+        self.bits = BitDepth.EIGHT
         self.channels = 1
         self.duration = 0.0
         self.type = "fullrange"  # or "multiband"
@@ -574,7 +574,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--start", "-s", type=float, default=0.0, help="Start time in seconds")
     parser.add_argument("--width", "-w", type=int, default=800, help="Width in pixels")
     parser.add_argument("--split-channels", action="store_true", help="Keep channels separate")
-    parser.add_argument("--bits", "-b", type=int, choices=[BitDepth.EIGHT, BitDepth.SIXTEEN], default=BitDepth.SIXTEEN,
+    parser.add_argument("--bits", "-b", type=int, choices=[BitDepth.EIGHT, BitDepth.SIXTEEN], default=BitDepth.EIGHT,
                         help="Output bit depth")
     parser.add_argument("--bands", "-f", nargs="+",
                         help="Frequency bands: 'name:filter_type:freq:slope[,...]'")
