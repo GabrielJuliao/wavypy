@@ -2,20 +2,20 @@
 
 Extract waveform data from audio files with ease and precision.
 
-WavyPy is a Python tool that processes audio files (e.g., MP3, WAV) and extracts waveform data, saving it as
-a structured JSON file. Whether you're visualizing audio for a web app, analyzing sound patterns, or debugging audio
-processing pipelines, this tool provides a fast, flexible, and reliable solution.
+WavyPy is a Python tool designed to process audio files (e.g., MP3, WAV) and extract waveform data, saving it as a
+structured JSON file. Whether you're visualizing audio for a web app, analyzing sound patterns, or debugging audio
+processing pipelines, WavyPy offers a fast, flexible, and reliable solution.
 
 ---
 
 ## Features
 
-- **High Performance**: Uses NumPy for optimized waveform processing.
+- **High Performance**: Utilizes NumPy for optimized waveform processing.
 - **Flexible Scaling**: Choose between samples per pixel, pixels per second, or duration-based scaling.
-- **Multi-Channel Support**: Process stereo or mono audio, with options to split or mix channels.
+- **Multi-Channel Support**: Process stereo or mono audio with options to split or mix channels.
 - **Readable Output**: Saves waveform data in a well-structured JSON format.
 - **Command-Line Interface**: Simple CLI with detailed help and options.
-- **Extensible**: Modular design for easy customization or integration.
+- **Extensible**: Modular design for easy customization and integration.
 
 ---
 
@@ -35,6 +35,7 @@ git clone https://github.com/GabrielJuliao/wavypy.git
 cd wavypy
 pip install -r requirements.txt
 ```
+
 ---
 
 ## Usage
@@ -47,21 +48,25 @@ python waveform_extractor.py input.mp3 output.json
 
 ### Options
 
-| Flag                  | Description                                 | Default | Example                   |
-|-----------------------|---------------------------------------------|---------|---------------------------|
-| `-z, --zoom`          | Samples per pixel                           | 256     | `--zoom 512`              |
-| `--pixels-per-second` | Pixels per second                           | -       | `--pixels-per-second 100` |
-| `-s, --start`         | Start time (seconds)                        | 0.0     | `--start 2.5`             |
-| `-e, --end`           | End time (seconds)                          | -       | `--end 10.0`              |
-| `-w, --width`         | Width in pixels (with `--end`)              | 800     | `--width 1000`            |
-| `--split-channels`    | Keep channels separate (vs. mixing to mono) | False   | `--split-channels`        |
-| `-b, --bits`          | Output bit depth (8 or 16)                  | 16      | `--bits 8`                |
-| `-q, --quiet`         | Suppress progress messages                  | False   | `--quiet`                 |
-| `--version`           | Show version                                | -       | `--version`               |
+| Flag                     | Description                                 | Default | Example                       |
+|--------------------------|---------------------------------------------|---------|-------------------------------|
+| `-z, --zoom`             | Samples per pixel                           | 256     | `--zoom 512`                  |
+| `--pixels-per-second`    | Pixels per second                           | -       | `--pixels-per-second 100`     |
+| `-s, --start`            | Start time (seconds)                        | 0.0     | `--start 2.5`                 |
+| `-e, --end`              | End time (seconds)                          | -       | `--end 10.0`                  |
+| `-w, --width`            | Width in pixels                             | 800     | `--width 1000`                |
+| `--split-channels`       | Keep channels separate (vs. mixing to mono) | False   | `--split-channels`            |
+| `-b, --bits`             | Output bit depth (8 or 16)                  | 8       | `--bits 16`                   |
+| `-f, --bands`            | Frequency bands                             | -       | `--bands bass:lowpass:200:12` |
+| `--band-preset`          | Use a predefined band preset                | -       | `--band-preset detailed`         |
+| `--sample-format`        | Sample encoding format (json or binary)     | binary  | `--sample-format json`        |
+| `-c, --compression-type` | Compression type for sample data            | gzip    | `--compression-type none`     |
+| `-q, --quiet`            | Suppress progress messages                  | False   | `--quiet`                     |
+| `--version`              | Show version                                | -       | `--version`                   |
 
 ### Examples
 
-#### 1. Basic Extraction (Mono, 16-bit)
+#### 1. Basic Extraction (Mono, 8-bit)
 
 ```bash
 python waveform_extractor.py song.mp3 waveform.json
@@ -85,6 +90,18 @@ python waveform_extractor.py stereo.wav result.json --start 0 --end 10 --width 1
 python waveform_extractor.py audio.mp3 data.json --pixels-per-second 50
 ```
 
+#### 5. Frequency Band Processing
+
+```bash
+python waveform_extractor.py music.wav bands.json --bands bass:lowpass:200:12 mid:bandpass:1000:6
+```
+
+#### 6. Using a Band Preset
+
+```bash
+python waveform_extractor.py speech.wav preset.json --band-preset detailed
+```
+
 ---
 
 ## Output Format
@@ -93,30 +110,53 @@ The tool generates a JSON file with structured waveform data. Example (`output.j
 
 ```json
 {
-  "version": 2,
+  "version": "1.0.0",
   "channels": 1,
   "sample_rate": 44100,
+  "bits_per_sample": 16,
+  "duration": 0.0,
   "samples_per_pixel": 256,
-  "bits": 16,
-  "length": 2,
-  "data": [
-    -32768,
-    32767,
-    -12345,
-    12345
-  ]
+  "type": "fullrange",
+  "data": {
+    "fullrange": {
+      "compression": "none",
+      "sample_format": "base64_json",
+      "samples": ""
+    },
+    "multiband": {
+      "bands": [
+        {
+          "name": "low",
+          "frequency_range": [
+            20,
+            200
+          ],
+          "compression": "gzip",
+          "sample_format": "base64_binary",
+          "samples": ""
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "compression": "none",
+    "source": "raw",
+    "tags": {}
+  }
 }
 ```
 
 ### Output Fields
 
-- **`version`**: Format version (currently 2).
+- **`version`**: Metadata version for compatibility.
 - **`channels`**: Number of audio channels.
 - **`sample_rate`**: Audio sample rate (Hz).
-- **`samples_per_pixel`**: Samples per data point.
-- **`bits`**: Bit depth of output values.
-- **`length`**: Number of data points per channel.
-- **`data`**: Array of min/max pairs (flattened).
+- **`bits_per_sample`**: Bit depth per sample.
+- **`duration`**: Duration of the audio (seconds).
+- **`samples_per_pixel`**: Number of samples per visualized pixel.
+- **`type`**: Waveform type (`fullrange` or `multiband`).
+- **`data`**: Contains waveform data, supporting both full-range and multi-band formats.
+- **`metadata`**: Additional metadata such as compression and source type.
 
 ---
 
@@ -125,7 +165,8 @@ The tool generates a JSON file with structured waveform data. Example (`output.j
 1. **Audio Loading**: Reads audio files using `pydub`.
 2. **Waveform Processing**: Computes min/max sample values per pixel using optimized NumPy operations.
 3. **Scaling**: Adjusts resolution based on user-defined scaling (e.g., samples per pixel).
-4. **Output**: Saves results as a formatted JSON file.
+4. **Frequency Band Filtering**: Applies user-defined or preset frequency bands.
+5. **Output**: Saves results as a formatted JSON file.
 
 ---
 
