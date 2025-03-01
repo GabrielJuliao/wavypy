@@ -43,7 +43,7 @@ pip install -r requirements.txt
 Run the script from the command line with an input audio file and output JSON file:
 
 ```bash
-python waveform_extractor.py input.mp3 output.json
+python wavy.py input.mp3 output.json
 ```
 
 ### Options
@@ -69,37 +69,37 @@ python waveform_extractor.py input.mp3 output.json
 #### 1. Basic Extraction (Mono, 8-bit)
 
 ```bash
-python waveform_extractor.py song.mp3 waveform.json
+python wavy.py song.mp3 waveform.json
 ```
 
 #### 2. High-Resolution Extraction
 
 ```bash
-python waveform_extractor.py podcast.wav output.json --zoom 512
+python wavy.py podcast.wav output.json --zoom 512
 ```
 
 #### 3. Specific Duration with Split Channels
 
 ```bash
-python waveform_extractor.py stereo.wav result.json --start 0 --end 10 --width 1000 --split-channels
+python wavy.py stereo.wav result.json --start 0 --end 10 --width 1000 --split-channels
 ```
 
 #### 4. Pixels per Second
 
 ```bash
-python waveform_extractor.py audio.mp3 data.json --pixels-per-second 50
+python wavy.py audio.mp3 data.json --pixels-per-second 50
 ```
 
 #### 5. Frequency Band Processing
 
 ```bash
-python waveform_extractor.py music.wav bands.json --bands bass:lowpass:200:12 mid:bandpass:1000:6
+python wavy.py music.wav bands.json --bands bass:lowpass:200:12 mid:bandpass:1000:6
 ```
 
 #### 6. Using a Band Preset
 
 ```bash
-python waveform_extractor.py speech.wav preset.json --band-preset detailed
+python wavy.py speech.wav preset.json --band-preset detailed
 ```
 
 ---
