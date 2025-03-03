@@ -36,7 +36,6 @@ band_presets = {
     ],
     "club": [
         "low:lowpass:250:12",
-        "low_mid:highpass:250:12,lowpass:500:12",
         "mid:highpass:250:12,lowpass:1200:12",
         "high:highpass:2000:12,lowpass:3000:12",
     ]
