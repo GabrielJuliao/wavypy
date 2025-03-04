@@ -320,18 +320,42 @@ class WaveformRenderer {
   renderOverlayBands(selectedBands, width, height) {
     const centerY = height / 2;
 
+    // Draw center line
     this.ctx.beginPath();
     this.ctx.moveTo(0, centerY);
     this.ctx.lineTo(width, centerY);
     this.ctx.strokeStyle = this.colors.centerLine;
     this.ctx.stroke();
 
-    selectedBands.forEach((bandName, index) => {
-      const bandColor = this.bandColors[bandName];
-      this.renderBandWaveform(bandName, 0, height, centerY, bandColor);
+    // Define band rendering order (low first, then mid, then high)
+    const renderOrder = ["low", "mid", "high", "ultra"];
 
+    // Sort the bands based on render order
+    const orderedBands = [...selectedBands].sort((a, b) => {
+      const indexA = renderOrder.indexOf(a);
+      const indexB = renderOrder.indexOf(b);
+      // If not found in order, put at end
+      return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+    });
+
+    // Render bands in the correct order
+    orderedBands.forEach((bandName) => {
+      const bandColor = this.bandColors[bandName];
+      this.renderBandWaveform(
+        bandName,
+        0,
+        height,
+        centerY,
+        bandColor,
+        bandName
+      );
+    });
+
+    // Draw band names
+    this.ctx.font = "12px Arial";
+    orderedBands.forEach((bandName, index) => {
+      const bandColor = this.bandColors[bandName];
       this.ctx.fillStyle = bandColor;
-      this.ctx.font = "12px Arial";
       this.ctx.fillText(bandName, 5 + index * 60, 15);
     });
   }
@@ -428,46 +452,90 @@ class WaveformRenderer {
     this.ctx.stroke();
   }
 
-  renderClubStyle(samples, visibleStart, visibleEnd, height, centerY, color) {
+  // Just the renderClubStyle function with overlay logic added
+
+  renderClubStyle(
+    samples,
+    visibleStart,
+    visibleEnd,
+    height,
+    centerY,
+    color,
+    bandName
+  ) {
     const ctx = this.ctx;
     const scaleFactor = (height / 2) * 0.8;
 
-    // Use raw samples directly (no uniform scaling or smoothing)
-    // Draw upper waveform (no smoothing, raw data)
+    // Apply appropriate blending mode based on band name
+    if (this.displayMode === "overlay") {
+      if (bandName === "low") {
+        ctx.globalCompositeOperation = "source-over"; // Base layer
+      } else if (bandName === "mid") {
+        ctx.globalCompositeOperation = "lighten"; // To blend with low
+      } else if (bandName === "high" || bandName === "ultra") {
+        ctx.globalCompositeOperation = "lighten"; // To preserve white
+      } else {
+        ctx.globalCompositeOperation = "source-over"; // Default
+      }
+    }
+
+    // Set transparency based on band
+    if (bandName === "high" || bandName === "ultra") {
+      ctx.globalAlpha = 0.9;
+    } else if (bandName === "low") {
+      ctx.globalAlpha = 0.8;
+    } else if (bandName === "mid") {
+      ctx.globalAlpha = 0.7;
+    } else {
+      ctx.globalAlpha = 0.8; // Default
+    }
+
+    // Draw filled waveform
     ctx.beginPath();
     ctx.moveTo((visibleStart - this.offset) * this.zoom, centerY);
 
-    // Plot upper peaks with linear interpolation using raw data
+    // Upper waveform
     for (let i = visibleStart; i < visibleEnd; i++) {
       const x = (i - this.offset) * this.zoom;
       const maxY = samples[i * 2 + 1]; // Raw upper peak
-      const yMax = centerY - (maxY / 32768) * scaleFactor; // Adjust for your bit depth (e.g., 16-bit ±32768)
+      const yMax = centerY - (maxY / 32768) * scaleFactor;
       ctx.lineTo(x, yMax);
     }
 
-    // Finish upper edge with the last point
+    // Complete the path back to center
     const lastX = (visibleEnd - 1 - this.offset) * this.zoom;
-    const lastMaxY = samples[(visibleEnd - 1) * 2 + 1]; // Raw last upper peak
     ctx.lineTo(lastX, centerY);
 
-    // Draw lower waveform (no smoothing, raw data) in reverse
+    // Lower waveform (in reverse)
     for (let i = visibleEnd - 1; i >= visibleStart; i--) {
       const x = (i - this.offset) * this.zoom;
       const minY = samples[i * 2]; // Raw lower peak
-      const yMin = centerY - (minY / 32768) * scaleFactor; // Adjust for your bit depth
+      const yMin = centerY - (minY / 32768) * scaleFactor;
       ctx.lineTo(x, yMin);
     }
 
-    // Close the path to fill the shape
+    // Close the path
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
 
-    // Optional: Add a subtle outline for definition (Rekordbox-like)
-    ctx.strokeStyle = color;
+    // Add outline with slight glow
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = color;
     ctx.stroke();
+
+    // Special effect for high frequencies
+    if (bandName === "high" || bandName === "ultra") {
+      ctx.shadowColor = "#ffffff";
+      ctx.shadowBlur = 4;
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // Reset canvas properties
+    ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1.0;
   }
 
