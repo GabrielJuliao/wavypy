@@ -21,7 +21,6 @@
         margin: 0 auto;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        /* background: #252525; */
       }
 
       h1 {
@@ -37,8 +36,7 @@
         flex-wrap: wrap;
       }
 
-      .controls button,
-      .controls select {
+      .controls button {
         background-color: #2c6e31;
         border: none;
         color: white;
@@ -51,24 +49,20 @@
         transition: background-color 0.3s;
       }
 
-      .controls button:hover,
-      .controls select:hover {
+      .controls button:hover {
         background-color: #3c9341;
       }
 
-      .controls button:disabled,
-      .controls select:disabled {
+      .controls button:disabled {
         background-color: #444444;
         color: #888888;
         cursor: not-allowed;
       }
 
-      .style-selector,
-      .band-selector {
-        margin-left: 10px;
+      .band-display-mode {
+        margin-left: auto;
         background-color: #333333;
         color: #e0e0e0;
-        border: 1px solid #555555;
       }
 
       .scroll-container {
@@ -154,12 +148,6 @@
         background-color: #444444;
       }
 
-      .band-display-mode {
-        margin-left: auto;
-        background-color: #333333;
-        color: #e0e0e0;
-      }
-
       .color-indicator {
         display: inline-block;
         width: 12px;
@@ -177,6 +165,14 @@
         font-size: 14px;
         color: #ccc;
         border: 1px solid #444444;
+      }
+
+      select {
+        background-color: #333333;
+        color: #e0e0e0;
+        border: 1px solid #555555;
+        padding: 5px;
+        border-radius: 4px;
       }
     </style>
   </head>
@@ -210,12 +206,6 @@
         <button id="zoom-in">Zoom In</button>
         <button id="zoom-out">Zoom Out</button>
         <span class="zoom-level">Zoom: <span id="zoom-value">1x</span></span>
-
-        <div class="style-selector">
-          <select id="waveform-style">
-            <option value="club">Club</option>
-          </select>
-        </div>
       </div>
 
       <div class="waveform-container">
@@ -247,18 +237,17 @@
           this.selectedBands = new Set();
           this.displayMode = "stacked"; // 'stacked' or 'overlay'
 
-          this.colorScheme = {
+          // Predefined colors for bands
+          this.bandColors = {
             low: "#0055e2", // blue
             mid: "#f2aa3c", // orange
             high: "#ffffff", // white
           };
 
-          this.bandColors = {};
           this.colors = {
             background: "#000000",
             centerLine: "#cccccc",
           };
-          this.renderStyle = "club";
 
           this.resizeCanvas();
           window.addEventListener("resize", () => this.resizeCanvas());
@@ -273,18 +262,24 @@
 
         async loadData(data) {
           console.log("Loading waveform data:", data);
-          this.waveformData = await this.decodeWaveformData(data);
-          this.zoom = 1;
-          this.offset = 0;
+          this.waveformData = data;
+
+          // Decode all band samples
+          for (const band of this.waveformData.data.multiband.bands) {
+            band.samples = await this.decodeSamples(
+              band.samples,
+              band.sample_format,
+              band.compression,
+              this.waveformData.bits_per_sample
+            );
+          }
 
           // Initialize selected bands
-          const bandNames =
-            this.waveformData.type === "multiband"
-              ? this.waveformData.data.multiband.bands.map((b) => b.name)
-              : ["fullrange"];
+          const bandNames = this.waveformData.data.multiband.bands.map(
+            (b) => b.name
+          );
           this.selectedBands = new Set(bandNames);
 
-          this.setupBandColors();
           this.createBandCheckboxes();
           this.updateFileInfo();
           this.render();
@@ -293,74 +288,27 @@
           this.updateScrollBar();
         }
 
-        async decodeWaveformData(data) {
-          // Handle the JSON structure from the waveform generator
-          const decodedData = { ...data };
-
-          if (data.type === "multiband") {
-            for (const band of decodedData.data.multiband.bands) {
-              band.samples = await this.decodeSamples(
-                band.samples,
-                band.sample_format,
-                band.compression,
-                data.bits_per_sample
-              );
-            }
-          } else {
-            window.alert("Only multi-band is supported!");
-          }
-
-          return decodedData;
-        }
-
         async decodeSamples(samples, sampleFormat, compression, bits) {
           // Decode base64 string
           const binaryString = atob(samples);
-          let byteArray;
+          const byteArray = new Uint8Array(
+            [...binaryString].map((ch) => ch.charCodeAt(0))
+          );
 
-          // Handle compression
-          if (compression === "none") {
-            byteArray = new Uint8Array(
-              [...binaryString].map((ch) => ch.charCodeAt(0))
-            );
-          } else {
-            window.alert("Compression is not supported");
-          }
+          // Handle sample format
+          const dataView = new DataView(byteArray.buffer);
+          const sampleCount = byteArray.length / (bits === 8 ? 1 : 2);
+          const samplesArray = new Int16Array(sampleCount);
 
-          if (sampleFormat === "base64_binary") {
-            // base64_binary
-            const dataView = new DataView(byteArray.buffer);
-            const sampleCount = byteArray.length / (bits === 8 ? 1 : 2);
-            const samplesArray = new Int16Array(sampleCount);
-
-            for (let i = 0; i < sampleCount; i++) {
-              if (bits === 8) {
-                samplesArray[i] = dataView.getInt8(i) * 256;
-              } else {
-                samplesArray[i] = dataView.getInt16(i * 2, true);
-              }
+          for (let i = 0; i < sampleCount; i++) {
+            if (bits === 8) {
+              samplesArray[i] = dataView.getInt8(i) * 256;
+            } else {
+              samplesArray[i] = dataView.getInt16(i * 2, true);
             }
-            return Array.from(samplesArray);
-          } else {
-            window.alert("Only base64 binary is supported");
           }
-        }
 
-        setupBandColors() {
-          this.bandColors = {};
-          if (!this.waveformData) return;
-
-          const bands =
-            this.waveformData.type === "multiband"
-              ? this.waveformData.data.multiband.bands
-              : [{ name: "fullrange" }];
-
-          bands.forEach((band, index) => {
-            const bandName = band.name;
-            this.bandColors[bandName] =
-              this.colorScheme[bandName] ||
-              this.defaultColors[index % this.defaultColors.length];
-          });
+          return Array.from(samplesArray);
         }
 
         createBandCheckboxes() {
@@ -369,13 +317,8 @@
 
           if (!this.waveformData) return;
 
-          const bands =
-            this.waveformData.type === "multiband"
-              ? this.waveformData.data.multiband.bands
-              : [{ name: "fullrange" }];
-
-          bands.forEach((band) => {
-            const color = this.bandColors[band.name];
+          this.waveformData.data.multiband.bands.forEach((band) => {
+            const color = this.bandColors[band.name] || "#ffffff";
             const checkbox = document.createElement("label");
             checkbox.className = "band-checkbox";
 
@@ -409,29 +352,28 @@
             bits_per_sample,
             samples_per_pixel,
             duration,
-            type,
             version,
             metadata,
           } = this.waveformData;
-          const bands =
-            type === "multiband"
-              ? this.waveformData.data.multiband.bands
-                  .map((b) => b.name)
-                  .join(", ")
-              : "fullrange";
+
+          const bands = this.waveformData.data.multiband.bands
+            .map((b) => b.name)
+            .join(", ");
 
           infoPanel.innerHTML = `
-      <strong>File Info:</strong>
-      Sample Rate: ${sample_rate}Hz |
-      Channels: ${channels} |
-      Resolution: ${bits_per_sample}bit |
-      Samples per Pixel: ${samples_per_pixel} |
-      Duration: ${duration.toFixed(2)}s |
-      Version: ${version} |
-      Type: ${type} |
-      Bands: ${bands} |
-      Compression: ${metadata.compression}
-    `;
+            <strong>File Info:</strong>
+            Sample Rate: ${sample_rate}Hz |
+            Channels: ${channels} |
+            Resolution: ${bits_per_sample}bit |
+            Samples per Pixel: ${samples_per_pixel} |
+            Duration: ${duration.toFixed(2)}s |
+            Version: ${version} |
+            Type: multiband |
+            Bands: ${bands} |
+            ${
+              metadata.compression ? `Compression: ${metadata.compression}` : ""
+            }
+          `;
         }
 
         zoomIn() {
@@ -474,12 +416,8 @@
 
         getFullWidth() {
           if (!this.waveformData) return 0;
-
-          const samples =
-            this.waveformData.type === "multiband"
-              ? this.waveformData.data.multiband.bands[0].samples
-              : this.waveformData.data.fullrange.samples;
-          return samples.length / 2; // Each point has min and max
+          const band = this.waveformData.data.multiband.bands[0];
+          return band.samples.length / 2; // Each point has min and max
         }
 
         render() {
@@ -510,13 +448,14 @@
             const bandTop = index * bandHeight;
             const bandCenterY = bandTop + bandHeight / 2;
 
+            // Draw center line
             this.ctx.beginPath();
             this.ctx.moveTo(0, bandCenterY);
             this.ctx.lineTo(width, bandCenterY);
             this.ctx.strokeStyle = this.colors.centerLine;
             this.ctx.stroke();
 
-            const bandColor = this.bandColors[bandName];
+            const bandColor = this.bandColors[bandName] || "#ffffff";
             this.renderBandWaveform(
               bandName,
               bandTop,
@@ -525,6 +464,7 @@
               bandColor
             );
 
+            // Draw band name
             this.ctx.fillStyle = "#333";
             this.ctx.font = "12px Arial";
             this.ctx.fillText(bandName, 5, bandTop + 15);
@@ -541,14 +481,13 @@
           this.ctx.strokeStyle = this.colors.centerLine;
           this.ctx.stroke();
 
-          // Define band rendering order (low first, then mid, then high)
-          const renderOrder = ["low", "mid", "high", "ultra"];
+          // Define band rendering order
+          const renderOrder = ["low", "mid", "high"];
 
           // Sort the bands based on render order
           const orderedBands = [...selectedBands].sort((a, b) => {
             const indexA = renderOrder.indexOf(a);
             const indexB = renderOrder.indexOf(b);
-            // If not found in order, put at end
             return (
               (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB)
             );
@@ -556,7 +495,7 @@
 
           // Render bands in the correct order
           orderedBands.forEach((bandName) => {
-            const bandColor = this.bandColors[bandName];
+            const bandColor = this.bandColors[bandName] || "#ffffff";
             this.renderBandWaveform(
               bandName,
               0,
@@ -570,43 +509,44 @@
           // Draw band names
           this.ctx.font = "12px Arial";
           orderedBands.forEach((bandName, index) => {
-            const bandColor = this.bandColors[bandName];
+            const bandColor = this.bandColors[bandName] || "#ffffff";
             this.ctx.fillStyle = bandColor;
             this.ctx.fillText(bandName, 5 + index * 60, 15);
           });
         }
 
-        renderBandWaveform(bandName, bandTop, bandHeight, centerY, color) {
-          const samples = this.getBandSamples(bandName);
-          if (!samples) return;
+        renderBandWaveform(
+          bandName,
+          bandTop,
+          bandHeight,
+          centerY,
+          color,
+          bandNameForOverlay
+        ) {
+          const band = this.waveformData.data.multiband.bands.find(
+            (b) => b.name === bandName
+          );
 
+          if (!band) return;
+
+          const samples = band.samples;
           const visibleStart = Math.floor(this.offset);
           const visibleEnd = Math.min(
             Math.ceil(this.offset + this.getVisibleWidth()),
             samples.length / 2
           );
 
+          // Render using club style
           this.renderClubStyle(
             samples,
             visibleStart,
             visibleEnd,
             bandHeight,
             centerY,
-            color
+            color,
+            bandNameForOverlay
           );
         }
-
-        getBandSamples(bandName) {
-          if (this.waveformData.type === "multiband") {
-            const band = this.waveformData.data.multiband.bands.find(
-              (b) => b.name === bandName
-            );
-            return band ? band.samples : null;
-          }
-          return this.waveformData.data.fullrange.samples;
-        }
-
-        // Just the renderClubStyle function with overlay logic added
 
         renderClubStyle(
           samples,
@@ -620,28 +560,26 @@
           const ctx = this.ctx;
           const scaleFactor = (height / 2) * 0.8;
 
-          // Apply appropriate blending mode based on band name
+          // Apply appropriate blending mode in overlay mode
           if (this.displayMode === "overlay") {
             if (bandName === "low") {
               ctx.globalCompositeOperation = "source-over"; // Base layer
             } else if (bandName === "mid") {
               ctx.globalCompositeOperation = "lighten"; // To blend with low
-            } else if (bandName === "high" || bandName === "ultra") {
-              ctx.globalCompositeOperation = "lighten"; // To preserve white
             } else {
               ctx.globalCompositeOperation = "source-over"; // Default
             }
-          }
 
-          // Set transparency based on band
-          if (bandName === "high" || bandName === "ultra") {
-            ctx.globalAlpha = 0.9;
-          } else if (bandName === "low") {
-            ctx.globalAlpha = 0.8;
-          } else if (bandName === "mid") {
-            ctx.globalAlpha = 0.7;
-          } else {
-            ctx.globalAlpha = 0.8; // Default
+            // Set transparency based on band
+            if (bandName === "high") {
+              ctx.globalAlpha = 0.9;
+            } else if (bandName === "low") {
+              ctx.globalAlpha = 0.8;
+            } else if (bandName === "mid") {
+              ctx.globalAlpha = 0.7;
+            } else {
+              ctx.globalAlpha = 0.8; // Default
+            }
           }
 
           // Draw filled waveform
@@ -678,8 +616,11 @@
           ctx.strokeStyle = color;
           ctx.stroke();
 
-          // Special effect for high frequencies
-          if (bandName === "high" || bandName === "ultra") {
+          // Special effect for high frequencies in overlay mode
+          if (
+            this.displayMode === "overlay" &&
+            (bandName === "high")
+          ) {
             ctx.shadowColor = "#ffffff";
             ctx.shadowBlur = 4;
             ctx.lineWidth = 1.5;
@@ -730,13 +671,9 @@
         }
 
         enableControls() {
-          [
-            "zoom-in",
-            "zoom-out",
-            "scroll-bar",
-            "waveform-style",
-            "display-mode",
-          ].forEach((id) => (document.getElementById(id).disabled = false));
+          ["zoom-in", "zoom-out", "scroll-bar", "display-mode"].forEach(
+            (id) => (document.getElementById(id).disabled = false)
+          );
         }
 
         updateScrollBar() {
@@ -771,12 +708,6 @@
           renderer.updateTimeInfo();
         });
         document
-          .getElementById("waveform-style")
-          .addEventListener("change", (e) => {
-            renderer.renderStyle = e.target.value;
-            renderer.render();
-          });
-        document
           .getElementById("display-mode")
           .addEventListener("change", (e) => {
             renderer.setDisplayMode(e.target.value);
@@ -794,6 +725,12 @@
             try {
               const text = await file.text();
               const jsonData = JSON.parse(text);
+
+              // Check if it's a multiband waveform
+              if (jsonData.type !== "multiband") {
+                throw new Error("Only multiband waveforms are supported");
+              }
+
               await renderer.loadData(jsonData);
             } catch (err) {
               console.error("Error processing file:", err);
