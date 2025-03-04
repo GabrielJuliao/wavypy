@@ -74,6 +74,28 @@
         border: 1px solid #555;
         border-radius: 4px;
       }
+      .band-checkboxes {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .band-checkbox {
+        display: flex;
+        align-items: center;
+        padding: 5px 10px;
+        background: #333;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .band-checkbox input {
+        margin-right: 5px;
+      }
+      .color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-left: 5px;
+      }
     </style>
   </head>
   <body>
@@ -83,6 +105,7 @@
         <input type="file" id="file-input" accept=".json" />
         <span id="loading">Loading...</span>
       </div>
+      <div class="band-checkboxes" id="band-checkboxes"></div>
       <div class="controls">
         <button id="zoom-in">Zoom In</button>
         <button id="zoom-out">Zoom Out</button>
@@ -110,14 +133,14 @@
           this.data = null;
           this.zoom = 1;
           this.offset = 0;
-          this.colors = {
-            low: "#0055e2", // Blue for low
-            mid: "#f2aa3c", // Orange for mid
-            high: "#ffffff", // White for high
-            bg: "#000000",
-            center: "#ccc",
+          this.bands = {
+            low: { color: "#0055e2", visible: true }, // Blue, bottom
+            mid: { color: "#f2aa3c", visible: true }, // Orange, middle
+            high: { color: "#ffffff", visible: true }, // White, top
           };
+          this.colors = { bg: "#000000", center: "#ccc" };
           this.resize();
+          this.createCheckboxes();
           window.addEventListener("resize", () => this.resize());
         }
 
@@ -125,6 +148,26 @@
           this.canvas.width = this.canvas.parentElement.clientWidth;
           this.canvas.height = 300;
           this.render();
+        }
+
+        createCheckboxes() {
+          const container = document.getElementById("band-checkboxes");
+          for (const [name, { color, visible }] of Object.entries(this.bands)) {
+            const label = document.createElement("label");
+            label.className = "band-checkbox";
+            label.innerHTML = `
+                        <input type="checkbox" data-band="${name}" ${
+              visible ? "checked" : ""
+            }>
+                        ${name}
+                        <span class="color-dot" style="background: ${color}"></span>
+                    `;
+            label.querySelector("input").addEventListener("change", (e) => {
+              this.bands[name].visible = e.target.checked;
+              this.render();
+            });
+            container.appendChild(label);
+          }
         }
 
         async loadData(json) {
@@ -198,9 +241,10 @@
           this.ctx.strokeStyle = this.colors.center;
           this.ctx.stroke();
 
-          ["low", "mid", "high"].forEach((band) =>
-            this.renderBand(band, center)
-          );
+          // Render in z-index order: low, mid, high
+          ["low", "mid", "high"].forEach((band) => {
+            if (this.bands[band].visible) this.renderBand(band, center);
+          });
         }
 
         renderBand(bandName, center) {
@@ -230,7 +274,7 @@
             this.ctx.lineTo(x, min);
           }
           this.ctx.closePath();
-          this.ctx.fillStyle = this.colors[bandName];
+          this.ctx.fillStyle = this.bands[bandName].color;
           this.ctx.fill();
         }
 
@@ -274,7 +318,8 @@
 
         updateScroll() {
           const scroll = document.getElementById("scroll-bar");
-          const total = this.data.data.multiband.bands[0].samples.length / 2;
+          const total =
+            this.data?.data.multiband.bands[0].samples.length / 2 || 0;
           const visible = this.canvas.width / this.zoom;
           scroll.max = Math.max(0, total - visible);
           scroll.value = this.offset;
