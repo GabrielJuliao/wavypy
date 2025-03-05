@@ -8,6 +8,7 @@
       content="script-src 'self' 'unsafe-inline';"
     />
     <style>
+      /* Same styles as before */
       body {
         font-family: Arial, sans-serif;
         margin: 0;
@@ -134,9 +135,9 @@
           this.zoom = 1;
           this.offset = 0;
           this.bands = {
-            low: { color: "#0055e2", visible: true }, // Blue, bottom
-            mid: { color: "#f2aa3c", visible: true }, // Orange, middle
-            high: { color: "#ffffff", visible: true }, // White, top
+            low: { color: "#0055e2", visible: true },
+            mid: { color: "#f2aa3c", visible: true },
+            high: { color: "#ffffff", visible: true },
           };
           this.colors = { bg: "#000000", center: "#ccc" };
           this.resize();
@@ -156,12 +157,12 @@
             const label = document.createElement("label");
             label.className = "band-checkbox";
             label.innerHTML = `
-                        <input type="checkbox" data-band="${name}" ${
+              <input type="checkbox" data-band="${name}" ${
               visible ? "checked" : ""
             }>
-                        ${name}
-                        <span class="color-dot" style="background: ${color}"></span>
-                    `;
+              ${name}
+              <span class="color-dot" style="background: ${color}"></span>
+            `;
             label.querySelector("input").addEventListener("change", (e) => {
               this.bands[name].visible = e.target.checked;
               this.render();
@@ -178,6 +179,8 @@
               band.sample_format,
               this.data.bits_per_sample
             );
+            // Precompute the envelope using Hilbert transform approximation
+            band.envelope = this.computeEnvelope(band.samples);
           }
           this.render();
           this.updateTime();
@@ -198,6 +201,30 @@
               bits === 8 ? view.getInt8(i) * 256 : view.getInt16(i * 2, true);
           }
           return result;
+        }
+
+        // Simple Hilbert transform approximation via moving average envelope
+        computeEnvelope(samples) {
+          const windowSize = 1; // Adjust for smoothness
+          const envelope = new Float32Array(samples.length / 2);
+          for (let i = 0; i < envelope.length; i++) {
+            let sum = 0;
+            let count = 0;
+            for (
+              let j = Math.max(0, i - windowSize);
+              j < Math.min(envelope.length, i + windowSize);
+              j++
+            ) {
+              const sample = Math.max(
+                Math.abs(samples[j * 2]),
+                Math.abs(samples[j * 2 + 1])
+              );
+              sum += sample;
+              count++;
+            }
+            envelope[i] = sum / count / 32768; // Normalize to [0, 1]
+          }
+          return envelope;
         }
 
         zoomIn() {
@@ -222,8 +249,7 @@
 
         adjustOffset() {
           const visible = this.canvas.width / this.zoom;
-          const total =
-            this.data?.data.multiband.bands[0].samples.length / 2 || 0;
+          const total = this.data?.data.multiband.bands[0].envelope.length || 0;
           this.offset = Math.max(0, Math.min(this.offset, total - visible));
         }
 
@@ -241,38 +267,43 @@
           this.ctx.strokeStyle = this.colors.center;
           this.ctx.stroke();
 
-          // Render in z-index order: low, mid, high
+          // Render bands in reverse order for layering (low at bottom, high at top)
           ["low", "mid", "high"].forEach((band) => {
-            if (this.bands[band].visible) this.renderBand(band, center);
+            if (this.bands[band].visible) this.renderBandEnvelope(band, center);
           });
         }
 
-        renderBand(bandName, center) {
+        renderBandEnvelope(bandName, center) {
           const band = this.data.data.multiband.bands.find(
             (b) => b.name === bandName
           );
-          if (!band) return;
+          if (!band || !band.envelope) return;
 
-          const samples = band.samples;
+          const envelope = band.envelope;
           const start = Math.floor(this.offset);
           const end = Math.min(
             Math.ceil(this.offset + this.canvas.width / this.zoom),
-            samples.length / 2
+            envelope.length
           );
-          const scale = (this.canvas.height / 2) * 0.8;
+          const scale = (this.canvas.height / 2) * 0.9; // Adjust height scaling
 
           this.ctx.beginPath();
           this.ctx.moveTo(0, center);
+
+          // Upper envelope
           for (let i = start; i < end; i++) {
             const x = (i - this.offset) * this.zoom;
-            const max = center - (samples[i * 2 + 1] / 32768) * scale;
-            this.ctx.lineTo(x, max);
+            const y = center - envelope[i] * scale;
+            this.ctx.lineTo(x, y);
           }
+
+          // Lower envelope (mirrored)
           for (let i = end - 1; i >= start; i--) {
             const x = (i - this.offset) * this.zoom;
-            const min = center - (samples[i * 2] / 32768) * scale;
-            this.ctx.lineTo(x, min);
+            const y = center + envelope[i] * scale;
+            this.ctx.lineTo(x, y);
           }
+
           this.ctx.closePath();
           this.ctx.fillStyle = this.bands[bandName].color;
           this.ctx.fill();
@@ -293,7 +324,7 @@
           if (!this.data) return;
           const { samples_per_pixel, sample_rate } = this.data;
           const total =
-            ((this.data.data.multiband.bands[0].samples.length / 2) *
+            (this.data.data.multiband.bands[0].envelope.length *
               samples_per_pixel) /
             sample_rate;
           const start = (this.offset * samples_per_pixel) / sample_rate;
@@ -318,8 +349,7 @@
 
         updateScroll() {
           const scroll = document.getElementById("scroll-bar");
-          const total =
-            this.data?.data.multiband.bands[0].samples.length / 2 || 0;
+          const total = this.data?.data.multiband.bands[0].envelope.length || 0;
           const visible = this.canvas.width / this.zoom;
           scroll.max = Math.max(0, total - visible);
           scroll.value = this.offset;
