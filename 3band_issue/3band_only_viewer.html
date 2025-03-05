@@ -8,7 +8,6 @@
       content="script-src 'self' 'unsafe-inline';"
     />
     <style>
-      /* Same styles as before */
       body {
         font-family: Arial, sans-serif;
         margin: 0;
@@ -113,6 +112,10 @@
       </div>
       <div class="waveform-container">
         <canvas id="waveform"></canvas>
+        <canvas id="layer-canvas" style="display: none"></canvas>
+        <canvas id="low-canvas" style="display: none"></canvas>
+        <canvas id="mid-canvas" style="display: none"></canvas>
+        <canvas id="high-canvas" style="display: none"></canvas>
       </div>
       <div id="time-info">Duration: 0s | View: 0s - 0s</div>
       <input
@@ -129,16 +132,59 @@
     <script>
       class WaveformRenderer {
         constructor(canvasId) {
+          // Main display canvas
           this.canvas = document.getElementById(canvasId);
           this.ctx = this.canvas.getContext("2d");
+
+          // Create separate canvases for each band layer
+          this.layerCanvas = document.getElementById("layer-canvas");
+          this.layerCtx = this.layerCanvas.getContext("2d", {
+            willReadFrequently: true,
+          });
+
+          // Individual band canvases (completely isolated from background)
+          this.lowCanvas = document.getElementById("low-canvas");
+          this.lowCtx = this.lowCanvas.getContext("2d");
+
+          this.midCanvas = document.getElementById("mid-canvas");
+          this.midCtx = this.midCanvas.getContext("2d");
+
+          this.highCanvas = document.getElementById("high-canvas");
+          this.highCtx = this.highCanvas.getContext("2d");
+
           this.data = null;
           this.zoom = 1;
           this.offset = 0;
+
+          // Update band configuration for Rekordbox-style layering
+          // Order matters: blue (bottom), orange (middle), white (top)
           this.bands = {
-            low: { color: "#0055e2", visible: true },
-            mid: { color: "#f2aa3c", visible: true },
-            high: { color: "#ffffff", visible: true },
+            low: {
+              color: "#0055e2", // Blue - bottom layer
+              visible: true,
+              windowSize: 2,
+              blendMode: "source-over", // Default blend mode (no blend)
+              height: .6, // Scale factor for band height (1.0 = 100%)
+              zIndex: 1, // Layering order (lower number = bottom layer)
+            },
+            mid: {
+              color: "#f2aa3c", // Orange - middle layer
+              visible: true,
+              windowSize: 1,
+              blendMode: "color", // Uses color blend mode
+              height: .8, // Scale factor for band height (0.8 = 80%)
+              zIndex: 2, // Layering order (middle layer)
+            },
+            high: {
+              color: "#ffffff", // White - top layer
+              visible: true,
+              windowSize: 1,
+              blendMode: "source-over", // Uses soft-light blend mode
+              height: 1, // Scale factor for band height (0.6 = 60%)
+              zIndex: 3, // Layering order (higher number = top layer)
+            },
           };
+
           this.colors = { bg: "#000000", center: "#ccc" };
           this.resize();
           this.createCheckboxes();
@@ -146,8 +192,21 @@
         }
 
         resize() {
-          this.canvas.width = this.canvas.parentElement.clientWidth;
-          this.canvas.height = 300;
+          const width = this.canvas.parentElement.clientWidth;
+          const height = 300;
+
+          // Resize all canvases to match
+          this.canvas.width = width;
+          this.canvas.height = height;
+          this.layerCanvas.width = width;
+          this.layerCanvas.height = height;
+          this.lowCanvas.width = width;
+          this.lowCanvas.height = height;
+          this.midCanvas.width = width;
+          this.midCanvas.height = height;
+          this.highCanvas.width = width;
+          this.highCanvas.height = height;
+
           this.render();
         }
 
@@ -179,8 +238,9 @@
               band.sample_format,
               this.data.bits_per_sample
             );
-            // Precompute the envelope using Hilbert transform approximation
-            band.envelope = this.computeEnvelope(band.samples);
+            // Pass the band's window size to computeEnvelope
+            const windowSize = this.bands[band.name].windowSize;
+            band.envelope = this.computeEnvelope(band.samples, windowSize);
           }
           this.render();
           this.updateTime();
@@ -203,9 +263,7 @@
           return result;
         }
 
-        // Simple Hilbert transform approximation via moving average envelope
-        computeEnvelope(samples) {
-          const windowSize = 1; // Adjust for smoothness
+        computeEnvelope(samples, windowSize) {
           const envelope = new Float32Array(samples.length / 2);
           for (let i = 0; i < envelope.length; i++) {
             let sum = 0;
@@ -255,25 +313,46 @@
 
         render() {
           const { width, height } = this.canvas;
+
+          // Start with a clean black background on the main canvas
           this.ctx.fillStyle = this.colors.bg;
           this.ctx.fillRect(0, 0, width, height);
 
           if (!this.data) return this.renderEmpty();
 
+          // Clear all layer canvases completely (important for transparency)
+          this.layerCtx.clearRect(0, 0, width, height);
+          this.lowCtx.clearRect(0, 0, width, height);
+          this.midCtx.clearRect(0, 0, width, height);
+          this.highCtx.clearRect(0, 0, width, height);
+
           const center = height / 2;
+
+          // Draw center line on main canvas
           this.ctx.beginPath();
           this.ctx.moveTo(0, center);
           this.ctx.lineTo(width, center);
           this.ctx.strokeStyle = this.colors.center;
           this.ctx.stroke();
 
-          // Render bands in reverse order for layering (low at bottom, high at top)
-          ["low", "mid", "high"].forEach((band) => {
-            if (this.bands[band].visible) this.renderBandEnvelope(band, center);
-          });
+          // Draw each band on its own isolated canvas
+          if (this.bands.low.visible) {
+            this.renderBandToCanvas(this.lowCtx, "low", center);
+          }
+
+          if (this.bands.mid.visible) {
+            this.renderBandToCanvas(this.midCtx, "mid", center);
+          }
+
+          if (this.bands.high.visible) {
+            this.renderBandToCanvas(this.highCtx, "high", center);
+          }
+
+          // Composite all layers with proper blending
+          this.compositeLayers();
         }
 
-        renderBandEnvelope(bandName, center) {
+        renderBandToCanvas(ctx, bandName, center) {
           const band = this.data.data.multiband.bands.find(
             (b) => b.name === bandName
           );
@@ -285,28 +364,72 @@
             Math.ceil(this.offset + this.canvas.width / this.zoom),
             envelope.length
           );
-          const scale = (this.canvas.height / 2) * 0.9; // Adjust height scaling
+          // Apply band-specific height scaling
+          const scale =
+            (this.canvas.height / 2) * 0.9 * this.bands[bandName].height;
 
-          this.ctx.beginPath();
-          this.ctx.moveTo(0, center);
+          // Draw the band shape on its dedicated canvas
+          ctx.beginPath();
+          ctx.moveTo(0, center);
 
-          // Upper envelope
           for (let i = start; i < end; i++) {
             const x = (i - this.offset) * this.zoom;
             const y = center - envelope[i] * scale;
-            this.ctx.lineTo(x, y);
+            ctx.lineTo(x, y);
           }
 
-          // Lower envelope (mirrored)
           for (let i = end - 1; i >= start; i--) {
             const x = (i - this.offset) * this.zoom;
             const y = center + envelope[i] * scale;
-            this.ctx.lineTo(x, y);
+            ctx.lineTo(x, y);
           }
 
-          this.ctx.closePath();
-          this.ctx.fillStyle = this.bands[bandName].color;
-          this.ctx.fill();
+          ctx.closePath();
+          ctx.fillStyle = this.bands[bandName].color;
+          ctx.fill();
+        }
+
+        compositeLayers() {
+          const { width, height } = this.canvas;
+
+          // Start with a completely transparent layer canvas
+          this.layerCtx.clearRect(0, 0, width, height);
+
+          // Get bands sorted by z-index (lowest to highest)
+          const sortedBands = Object.entries(this.bands)
+            .filter(([_, config]) => config.visible)
+            .sort((a, b) => a[1].zIndex - b[1].zIndex);
+
+          // Draw bands in z-index order
+          for (const [bandName, config] of sortedBands) {
+            // First band is drawn normally
+            if (bandName === sortedBands[0][0]) {
+              this.layerCtx.globalCompositeOperation = "source-over";
+            } else {
+              // Subsequent bands use their specified blend mode
+              this.layerCtx.globalCompositeOperation = config.blendMode;
+            }
+
+            // Draw the band canvas to the layer canvas
+            switch (bandName) {
+              case "low":
+                this.layerCtx.drawImage(this.lowCanvas, 0, 0);
+                break;
+              case "mid":
+                this.layerCtx.drawImage(this.midCanvas, 0, 0);
+                break;
+              case "high":
+                this.layerCtx.drawImage(this.highCanvas, 0, 0);
+                break;
+            }
+          }
+
+          // Reset composite operation
+          this.layerCtx.globalCompositeOperation = "source-over";
+
+          // Finally, draw the composited result onto the main canvas
+          // This happens with "source-over" (normal) blend mode so the background is preserved
+          this.ctx.drawImage(this.layerCanvas, 0, 0);
         }
 
         renderEmpty() {
