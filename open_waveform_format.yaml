@@ -1,43 +1,24 @@
-# Metadata versioning for future compatibility
+# Waveform open format specification, versioned for compatibility
 version: "1.0.0"
 
-# Number of audio channels (e.g., 1 for mono, 2 for stereo)
-channels: 1
+# Audio properties
+channels: 1  # Number of channels (e.g., 1=mono, 2=stereo)
+sample_rate: 44100  # Samples per second (Hz, e.g., 44100)
+bits_per_sample: 16  # Bit depth per sample (e.g., 8, 16, 24, 32)
+duration: 0.0  # Duration in seconds (float)
 
-# Samples per second (e.g., 44100 Hz)
-sample_rate: 44100
+# Visualization hint (optional)
+samples_per_pixel: 256  # Samples per rendered pixel
 
-# Bit depth per sample (e.g., 8, 16, 24, 32)
-bits_per_sample: 16
+# Waveform data
+segments:
+  - name: "full"  # Descriptive name (e.g., "full" for fullrange, optional)
+    frequency_range: [ 20, 20000 ]  # [min_freq, max_freq] in Hz (optional)
+    source_channel: 1  # Source channel index (1-based, optional, defaults to all)
+    compression: "none"  # Compression method: "none", "gzip", "zlib"
+    encoding: "json"  # Data encoding: "json", "base64_binary"
+    structure: "peaks"  # Sample structure: "peaks", "peaks_with_brightness"
+    samples: ""  # Data payload: JSON array, or base64-encoded binary
 
-# Duration in seconds
-duration: 0.0
-
-# For visualization, samples per rendered pixel (optional)
-samples_per_pixel: 256
-
-# "fullrange" or "multiband" to define waveform type
-type: "fullrange"
-
-data:
-  # Structured data field, varies by type
-  fullrange:
-    # If type is "fullrange"
-    compression: "none"  # "none", "gzip", "zlib", etc.
-    sample_format: "base64_json"  # "base64_json", "base64_binary"
-    samples: ""  # String: JSON array or base64-encoded binary
-
-  multiband:
-    # If type is "multiband"
-    bands:
-      - name: "low"  # Descriptive name for the band
-        frequency_range: [ 20, 200 ]  # [min_freq, max_freq] in Hz
-        compression: "gzip"  # "none", "gzip", etc.
-        sample_format: "base64_binary"  # "base64_json", "base64_binary"
-        samples: ""  # String: base64-encoded JSON array or base64-encoded binary
-
-# Optional extensible metadata
-metadata:
-  compression: "none"  # Global compression hint
-  source: "raw"  # e.g., "raw", "file", "stream"
-  tags: { }  # Custom key-value pairs
+# Optional metadata (key-value pairs)
+metadata: { }
