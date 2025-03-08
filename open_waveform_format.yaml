@@ -11,7 +11,7 @@ duration: 0.0  # Duration in seconds (float)
 samples_per_pixel: 256  # Samples per rendered pixel
 
 # Waveform data
-segments:
+data_sets:
   - name: "full"  # Descriptive name (e.g., "full" for fullrange, optional)
     frequency_range: [ 20, 20000 ]  # [min_freq, max_freq] in Hz (optional)
     source_channel: 1  # Source channel index (1-based, optional, defaults to all)
